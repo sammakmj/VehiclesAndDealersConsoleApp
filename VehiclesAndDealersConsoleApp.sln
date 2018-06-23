@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27703.2035
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VehiclesAndDealersConsoleApp", "VehiclesAndDealersConsoleApp\VehiclesAndDealersConsoleApp.csproj", "{2A353A65-8941-4CEC-B2AD-96B05E54E6A5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sammak.VnD", "VehiclesAndDealersConsoleApp\Sammak.VnD.csproj", "{2A353A65-8941-4CEC-B2AD-96B05E54E6A5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
