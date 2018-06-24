@@ -4,9 +4,8 @@ using System.Text;
 
 namespace Sammak.VnD.Models
 {
-    public class DataSet
+    public class Dataset
     {
-        public string atasetId { get; set; }
         public string DatasetId { get; set; }
     }
 }

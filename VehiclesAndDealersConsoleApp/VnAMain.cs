@@ -9,103 +9,97 @@ namespace Sammak.VnD
 {
     internal class VnAMain
     {
-        private DataService _dataService;
-        private DataSet _dataSet;
-        private VehicleIdSet _vehicleIdSet = null;
-        private List<Vehicle> _vehiclesList = new List<Vehicle>();
-        private List<Dealer> _dealerList = new List<Dealer>();
-        private Dictionary<int, Dealer> _dealerDict = new Dictionary<int, Dealer>();
-
-        public VnAMain()
-        {
-            _dataService = new DataService();
-        }
+        private DataService _dataService = new DataService();
 
         public void Run()
         {
-            //GetDataSet();
-            //GetDataSetAndVehicleIds();
+            //GetDataset();
+            //GetDatasetAndVehicleIds();
             //GetVehicles();
             //GetVehicleAsync(); //;
             //GetDealers();
             DoAllAndPostAnswer();
         }
 
-        void GetDataSet()
+        string GetDataset()
         {
-            _dataSet = _dataService.GetDataSetAsync().GetAwaiter().GetResult();
-            Console.WriteLine($"dataSet Id = {_dataSet.DatasetId}");
+            var dataset = _dataService.GetDatasetAsync().GetAwaiter().GetResult();
+            Console.WriteLine($"dataset Id = {dataset.DatasetId}");
+            return dataset.DatasetId;
         }
 
-        void GetDataSetAndVehicleIds()
+        List<int> GetVehicleIds(string datasetId)
         {
-            GetDataSet();
+            var vehicleIds = _dataService.GetVehicleIdsAsync(datasetId).GetAwaiter().GetResult();
 
-            _vehicleIdSet = _dataService.GetVehicleIdSetAsync(_dataSet.DatasetId).GetAwaiter().GetResult();
-            foreach (var id in _vehicleIdSet.VehicleIds)
+            //foreach (var id in vehicleIdSet.VehicleIds)
+            //{
+            //    //Console.WriteLine($"\tVehicle Id = {id}");
+            //}
+            return vehicleIds.VehicleIds;
+        }
+
+        List<Vehicle> GetVehicles(string datasetId)
+        {
+            var vehicleIds = GetVehicleIds(datasetId);
+            var vehiclesList = _dataService.GetVehiclesAsync(datasetId, vehicleIds).GetAwaiter().GetResult().ToList();
+            //foreach (var vehicle in _vehiclesList)
+            //{
+            //    var vehicleJson = JsonConvert.SerializeObject(vehicle, Formatting.Indented);
+            //    //Console.WriteLine($"Vehicle Info:\n{vehicleJson}");
+            //}
+            return vehiclesList;
+        }
+
+        List<Dealer> GetDealers(string datasetId, List<Vehicle> vehiclesList = null)
+        {
+            if (vehiclesList == null)
             {
-                //Console.WriteLine($"\tVehicle Id = {id}");
+                // if the list of vehicles has not been supplied by the caller, this method will
+                // make a call the to data service to get it.
+                vehiclesList = GetVehicles(datasetId);
             }
-        }
+            var dealerIds = new List<int>();
 
-        void GetVehiclesAsync()
-        {
-            GetDataSetAndVehicleIds();
-
-            _vehiclesList = _dataService.GetVehicles(_dataSet.DatasetId, _vehicleIdSet.VehicleIds).GetAwaiter().GetResult().ToList();
-            foreach (var vehicle in _vehiclesList)
-            {
-                var vehicleJson = JsonConvert.SerializeObject(vehicle, Formatting.Indented);
-                //Console.WriteLine($"Vehicle Info:\n{vehicleJson}");
-            }
-        }
-
-        void GetVehicles()
-        {
-            GetDataSetAndVehicleIds();
-
-            foreach (var id in _vehicleIdSet.VehicleIds)
-            {
-                //Console.WriteLine($"\tVehicle Id = {id}");
-                var vehicle = _dataService.GetVehicleAsync(_dataSet.DatasetId, id).GetAwaiter().GetResult();
-                _vehiclesList.Add(vehicle);
-                string vehicleJson = JsonConvert.SerializeObject(vehicle, Formatting.Indented);
-                //Console.WriteLine($"Vehicle Info:\n{vehicleJson}");
-            }
-        }
-
-        void GetDealers()
-        {
-            GetVehicles();
-
-            foreach (var vehicle in _vehiclesList)
+            foreach (var vehicle in vehiclesList)
             {
                 var dealerId = vehicle.DealerId;
-
-                //Console.WriteLine($"\tVehicle Id = {vehicle.VehicleId}; DealerId = {dealerId}; Dealer Info: ");
-                var dealer = _dataService.GetDealerAsync(_dataSet.DatasetId, dealerId).GetAwaiter().GetResult();
-                string dealerJson = JsonConvert.SerializeObject(dealer, Formatting.Indented);
-                //Console.WriteLine($"{dealerJson}");
-                if (!_dealerDict.ContainsKey(dealerId))
+                if (!dealerIds.Exists(d => d == dealerId))
                 {
-                    _dealerDict[dealerId] = dealer;
+                    dealerIds.Add(dealerId);
                 }
             }
+
+            var dealersList = _dataService.GetDealersAsync(datasetId, dealerIds).GetAwaiter().GetResult().ToList();
+
+            //Console.WriteLine($"\tVehicle Id = {vehicle.VehicleId}; DealerId = {dealerId}; Dealer Info: ");
+            //var dealer = _dataService.GetDealerAsync(_dataset.DatasetId, dealerId).GetAwaiter().GetResult();
+            //    string dealerJson = JsonConvert.SerializeObject(dealer, Formatting.Indented);
+            //    //Console.WriteLine($"{dealerJson}");
+            //    if (!_dealerDict.ContainsKey(dealerId))
+            //    {
+            //        _dealerDict[dealerId] = dealer;
+            //    }
+            return dealersList;
         }
 
         void DoAllAndPostAnswer()
         {
-            GetDealers();
+            var datasetId = GetDataset();
+            var vehiclesList = GetVehicles(datasetId);
+            var dealersList = GetDealers(datasetId, vehiclesList);
 
             var answerPost = new AnswerPost();
 
-            foreach (var dealer in _dealerDict)
+            dealersList.ForEach(dealer =>
             {
-                var dealerPost = new DealerPost();
-                dealerPost.DealerId = dealer.Key;
-                dealerPost.Name = dealer.Value.Name;
-                var vehiclePostList = _vehiclesList
-                    .Where(v => v.DealerId == dealer.Key)
+                var dealerPost = new DealerPost
+                {
+                    DealerId = dealer.DealerId,
+                    Name = dealer.Name
+                };
+                var vehiclePostList = vehiclesList
+                    .Where(v => v.DealerId == dealer.DealerId)
                     .Select(v => new VehiclePost
                     {
                         VehicleId = v.VehicleId,
@@ -115,13 +109,12 @@ namespace Sammak.VnD
                     }).ToList();
                 dealerPost.Vehicles = vehiclePostList;
                 answerPost.Dealers.Add(dealerPost);
-            }
+            });
 
-            string answerPostJson = JsonConvert.SerializeObject(answerPost, Formatting.Indented);
-            Console.WriteLine($"{answerPostJson}");
+            //string answerPostJson = JsonConvert.SerializeObject(answerPost, Formatting.Indented);
+            //Console.WriteLine($"{answerPostJson}");
 
-
-            var answerResponse = _dataService.PostAnswerAsync(_dataSet.DatasetId, answerPost).GetAwaiter().GetResult();
+            var answerResponse = _dataService.PostAnswerAsync(datasetId, answerPost).GetAwaiter().GetResult();
             string answerResponseJson = JsonConvert.SerializeObject(answerResponse, Formatting.Indented);
             Console.WriteLine($"{answerResponseJson}");
         }
